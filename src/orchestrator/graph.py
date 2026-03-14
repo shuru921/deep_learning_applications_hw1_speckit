@@ -25,6 +25,19 @@ from src.orchestrator.schemas import (
 
 logger = logging.getLogger(__name__)
 
+# PubMed 搜尋時忽略的常見英文停用詞
+_STOP_WORDS = frozenset({
+    "a", "an", "and", "are", "as", "at", "be", "been", "but", "by",
+    "can", "do", "does", "for", "from", "had", "has", "have", "how",
+    "if", "in", "into", "is", "it", "its", "may", "new", "not", "of",
+    "on", "one", "or", "our", "out", "per", "set", "so", "such",
+    "than", "that", "the", "their", "them", "then", "there", "these",
+    "they", "this", "those", "through", "to", "too", "type", "up",
+    "use", "used", "using", "very", "via", "was", "we", "were",
+    "what", "when", "where", "which", "while", "who", "why", "will",
+    "with", "would", "you", "your", "latest", "recent", "current",
+})
+
 
 # ---------------------------------------------------------------------------
 # Node Context (Dependency Injection)
@@ -58,8 +71,14 @@ def _emit(state: LangGraphState, segment: str, content: str, final: bool = False
 
 
 def _state_to_dict(state: LangGraphState) -> Dict[str, Any]:
-    """將 LangGraphState 轉換為 dict，供 StateGraph 節點回傳。"""
-    return state.model_dump()
+    """將 LangGraphState 轉換為 dict，供 StateGraph 節點回傳。
+
+    注意：回傳後清空 partial_updates，避免 LangGraph 合併累積導致重複事件。
+    """
+    data = state.model_dump()
+    # 清空已序列化的更新，防止下一個節點的合併操作導致重複
+    state.ui.partial_updates.clear()
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -75,14 +94,15 @@ async def planner_node(state: LangGraphState, ctx: NodeContext) -> Dict[str, Any
     query = state.user_query.raw_prompt
     logger.info(f"Planner iteration={state.planning.iteration}, query='{query}'")
 
-    # 產生搜尋關鍵字
-    terms = [t.strip() for t in query.split() if len(t.strip()) > 2]
+    # 產生搜尋關鍵字 — 過濾 stop words 以避免 PubMed 回傳 0 結果
+    raw_terms = [t.strip() for t in query.split() if len(t.strip()) > 2]
+    terms = [t for t in raw_terms if t.lower() not in _STOP_WORDS]
     if not terms:
-        terms = [query]
+        terms = raw_terms if raw_terms else [query]
     state.user_query.normalized_terms = terms
 
-    # 更新 PubMed 查詢
-    search_term = " AND ".join(terms)
+    # 更新 PubMed 查詢（用空格連接，讓 PubMed 自動處理布林邏輯）
+    search_term = " ".join(terms)
     state.pubmed.latest_query = {"term": search_term, "max_results": 10}
 
     # 建立計畫步驟

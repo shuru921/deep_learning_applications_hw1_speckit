@@ -67,6 +67,7 @@ async def api_research(request: ResearchRequest) -> StreamingResponse:
 
     async def event_stream():
         final_state_data = None
+        emitted_count = 0  # 追蹤已輸出的 partial_updates 數量
         try:
             # Constitution §3.2: recursion_limit=30 MANDATORY
             async for event in graph.astream(
@@ -78,11 +79,13 @@ async def api_research(request: ResearchRequest) -> StreamingResponse:
                         if isinstance(node_state_data, dict):
                             final_state_data = node_state_data
 
-                            # 提取 UI partial_updates
+                            # 提取 UI partial_updates — 只輸出新事件
                             ui_data = node_state_data.get("ui", {})
                             partial_updates = ui_data.get("partial_updates", [])
 
-                            for update in partial_updates:
+                            # 跳過已輸出的事件，只處理新增的
+                            new_updates = partial_updates[emitted_count:]
+                            for update in new_updates:
                                 if isinstance(update, dict):
                                     yield _dumps({
                                         "event": "update",
@@ -91,6 +94,7 @@ async def api_research(request: ResearchRequest) -> StreamingResponse:
                                         "final": update.get("final", False),
                                         "created_at": update.get("created_at", ""),
                                     }) + "\n"
+                            emitted_count = len(partial_updates)
 
             # Summary event
             status = "failed"
