@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+httpx
+langgraph
+langchain
+langchain-core
+qdrant-client<1.17.0
+pydantic
+pydantic-settings
+python-dotenv
+jinja2
+python-multipart
+pytest
+pytest-asyncio
+pytest-anyio
+ruff
