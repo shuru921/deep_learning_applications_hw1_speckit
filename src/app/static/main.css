@@ -1,0 +1,113 @@
+/* MARS UI — main.css */
+
+:root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --primary: #38bdf8;
+    --accent: #22d3ee;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --success: #4ade80;
+    --error: #f87171;
+    --border: #334155;
+    --radius: 12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Inter', 'SF Pro', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+header { text-align: center; margin-bottom: 2rem; }
+header h1 { font-size: 1.8rem; color: var(--primary); margin-bottom: 0.5rem; }
+header p { color: var(--text-muted); font-size: 0.95rem; }
+
+.input-group {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--surface);
+    padding: 0.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+#query-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-size: 1rem;
+    outline: none;
+}
+
+#query-input::placeholder { color: var(--text-muted); }
+
+#submit-btn {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: #0f172a;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+#submit-btn:hover { opacity: 0.9; }
+#submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.progress-area, .result-area, .telemetry-area {
+    margin-top: 1.5rem;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+}
+
+.progress-area h3, .result-area h3, .telemetry-area h3 {
+    color: var(--primary);
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.progress-item {
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid var(--primary);
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    animation: fadeIn 0.3s ease;
+}
+
+.progress-item.final { border-left-color: var(--success); color: var(--text); font-weight: 500; }
+.progress-item.succeeded { border-left-color: var(--success); color: var(--success); }
+.progress-item.degraded { border-left-color: #fbbf24; color: #fbbf24; }
+.progress-item.error { border-left-color: var(--error); color: var(--error); }
+
+.result-area pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 0.9rem;
+    color: var(--text);
+    line-height: 1.7;
+}
+
+.telemetry-area pre {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    overflow-x: auto;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }

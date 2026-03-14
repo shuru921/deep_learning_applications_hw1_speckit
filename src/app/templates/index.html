@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARS — 多代理醫學研究系統</title>
+    <link rel="stylesheet" href="/static/main.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🩺 MARS — Multi-Agent Medical Research System</h1>
+            <p>AI 驅動的醫療文獻研究與分析平台</p>
+        </header>
+
+        <main>
+            <form id="query-form">
+                <div class="input-group">
+                    <input type="text" id="query-input" placeholder="輸入您的醫療研究問題..." required>
+                    <button type="submit" id="submit-btn">🔍 搜尋</button>
+                </div>
+            </form>
+
+            <div id="progress" class="progress-area" style="display: none;">
+                <h3>📊 執行進度</h3>
+                <div id="progress-items"></div>
+            </div>
+
+            <div id="result" class="result-area" style="display: none;">
+                <h3>📋 研究結果</h3>
+                <div id="result-content"></div>
+            </div>
+
+            <div id="telemetry" class="telemetry-area" style="display: none;">
+                <h3>📈 遙測數據</h3>
+                <pre id="telemetry-content"></pre>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const form = document.getElementById('query-form');
+        const input = document.getElementById('query-input');
+        const progress = document.getElementById('progress');
+        const progressItems = document.getElementById('progress-items');
+        const result = document.getElementById('result');
+        const resultContent = document.getElementById('result-content');
+        const telemetry = document.getElementById('telemetry');
+        const telemetryContent = document.getElementById('telemetry-content');
+        const submitBtn = document.getElementById('submit-btn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const query = input.value.trim();
+            if (!query) return;
+
+            // Reset UI
+            progress.style.display = 'block';
+            result.style.display = 'none';
+            telemetry.style.display = 'none';
+            progressItems.innerHTML = '';
+            resultContent.innerHTML = '';
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ 搜尋中...';
+
+            try {
+                const resp = await fetch('/api/research', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({query: query, max_articles: 3}),
+                });
+
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, {stream: true});
+
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const event = JSON.parse(line);
+                            handleEvent(event);
+                        } catch (err) { /* skip parse error */ }
+                    }
+                }
+            } catch (err) {
+                progressItems.innerHTML += `<div class="progress-item error">❌ 錯誤: ${err.message}</div>`;
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = '🔍 搜尋';
+        });
+
+        function handleEvent(event) {
+            if (event.event === 'update') {
+                const item = document.createElement('div');
+                item.className = 'progress-item' + (event.final ? ' final' : '');
+                item.textContent = `[${event.segment}] ${event.content}`;
+                progressItems.appendChild(item);
+
+                if (event.final) {
+                    result.style.display = 'block';
+                    resultContent.innerHTML = `<pre>${event.content}</pre>`;
+                }
+            } else if (event.event === 'summary') {
+                telemetry.style.display = 'block';
+                telemetryContent.textContent = JSON.stringify(event, null, 2);
+            } else if (event.event === 'complete') {
+                const statusItem = document.createElement('div');
+                statusItem.className = 'progress-item ' + event.status;
+                statusItem.textContent = `✅ 完成 — 狀態: ${event.status}`;
+                progressItems.appendChild(statusItem);
+            }
+        }
+    </script>
+</body>
+</html>
