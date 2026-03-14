@@ -241,11 +241,11 @@ async def rag_synthesizer_node(state: LangGraphState, ctx: NodeContext) -> Dict[
 
     if state.rag.context_bundle:
         summaries = []
-        for chunk in state.rag.context_bundle[:5]:
-            summaries.append(chunk.content[:200])
+        for chunk in state.rag.context_bundle[:10]:
+            summaries.append(chunk.content)
         state.rag.answer_draft = (
             f"Based on {len(state.rag.context_bundle)} sources:\n\n"
-            + "\n---\n".join(summaries)
+            + "\n\n---\n\n".join(summaries)
         )
         _emit(state, "rag_synthesizer", f"Synthesized answer from {len(state.rag.context_bundle)} chunks")
     else:
