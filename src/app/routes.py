@@ -4,12 +4,25 @@
 Constitution §3.2: recursion_limit=30 必設。
 """
 
-from __future__ import annotations
-
 import json
+import logging
 import uuid
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
+
+
+class _DateTimeEncoder(json.JSONEncoder):
+    """自訂 JSON encoder 處理 datetime 物件。"""
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+
+def _dumps(obj: Any) -> str:
+    return json.dumps(obj, cls=_DateTimeEncoder, ensure_ascii=False)
+
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -17,6 +30,8 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from src.orchestrator.schemas import LangGraphState, UserQueryState
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -51,7 +66,7 @@ async def api_research(request: ResearchRequest) -> StreamingResponse:
     )
 
     async def event_stream():
-        final_state = None
+        final_state_data = None
         try:
             # Constitution §3.2: recursion_limit=30 MANDATORY
             async for event in graph.astream(
@@ -59,42 +74,60 @@ async def api_research(request: ResearchRequest) -> StreamingResponse:
                 config={"recursion_limit": 30},
             ):
                 if isinstance(event, dict):
-                    for node_name, node_state in event.items():
-                        if isinstance(node_state, LangGraphState):
-                            final_state = node_state
-                            for update in node_state.ui.partial_updates:
-                                yield json.dumps({
-                                    "event": "update",
-                                    "segment": update.segment,
-                                    "content": update.content,
-                                    "final": update.final,
-                                    "created_at": update.created_at.isoformat(),
-                                }) + "\n"
-                            # 清除已發送的更新
-                            node_state.ui.partial_updates.clear()
+                    for node_name, node_state_data in event.items():
+                        if isinstance(node_state_data, dict):
+                            final_state_data = node_state_data
+
+                            # 提取 UI partial_updates
+                            ui_data = node_state_data.get("ui", {})
+                            partial_updates = ui_data.get("partial_updates", [])
+
+                            for update in partial_updates:
+                                if isinstance(update, dict):
+                                    yield _dumps({
+                                        "event": "update",
+                                        "segment": update.get("segment", node_name),
+                                        "content": update.get("content", ""),
+                                        "final": update.get("final", False),
+                                        "created_at": update.get("created_at", ""),
+                                    }) + "\n"
 
             # Summary event
-            status = final_state.status if final_state else "failed"
-            yield json.dumps({
+            status = "failed"
+            total_articles = 0
+            total_chunks = 0
+            trust_score = 0
+
+            if final_state_data:
+                status = final_state_data.get("status", "failed")
+                pubmed = final_state_data.get("pubmed", {})
+                total_articles = len(pubmed.get("results", []))
+                rag = final_state_data.get("rag", {})
+                total_chunks = len(rag.get("context_bundle", []))
+                critic = final_state_data.get("critic", {})
+                trust_score = critic.get("trust_score", 0)
+
+            yield _dumps({
                 "event": "summary",
                 "status": status,
                 "correlation_id": correlation_id,
                 "telemetry": {
-                    "total_articles": len(final_state.pubmed.results) if final_state else 0,
-                    "total_chunks": len(final_state.rag.context_bundle) if final_state else 0,
-                    "trust_score": final_state.critic.trust_score if final_state else 0,
+                    "total_articles": total_articles,
+                    "total_chunks": total_chunks,
+                    "trust_score": trust_score,
                 },
             }) + "\n"
 
             # Complete event
-            yield json.dumps({
+            yield _dumps({
                 "event": "complete",
                 "status": status,
                 "correlation_id": correlation_id,
             }) + "\n"
 
         except Exception as e:
-            yield json.dumps({
+            logger.exception(f"Graph execution error: {e}")
+            yield _dumps({
                 "event": "complete",
                 "status": "failed",
                 "correlation_id": correlation_id,

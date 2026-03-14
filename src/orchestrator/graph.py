@@ -3,14 +3,12 @@
 依據 constitution.md §3 與 tasks/task_005_orchestrator.md 實作。
 """
 
-from __future__ import annotations
-
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from src.orchestrator.schemas import (
     ContextChunk,
@@ -38,7 +36,7 @@ class NodeContext:
     """節點執行所需的依賴注入容器。"""
     pubmed_wrapper: Any = None
     qdrant_wrapper: Any = None
-    config: dict[str, Any] = field(default_factory=dict)
+    config: Dict[str, Any] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -59,12 +57,17 @@ def _emit(state: LangGraphState, segment: str, content: str, final: bool = False
     )
 
 
+def _state_to_dict(state: LangGraphState) -> Dict[str, Any]:
+    """將 LangGraphState 轉換為 dict，供 StateGraph 節點回傳。"""
+    return state.model_dump()
+
+
 # ---------------------------------------------------------------------------
 # 9 Node Functions
 # ---------------------------------------------------------------------------
 
 
-async def planner_node(state: LangGraphState, ctx: NodeContext) -> LangGraphState:
+async def planner_node(state: LangGraphState, ctx: NodeContext) -> Dict[str, Any]:
     """節點 1: 查詢分解與關鍵字規劃。"""
     _activate_node(state, "planner")
 
@@ -93,10 +96,10 @@ async def planner_node(state: LangGraphState, ctx: NodeContext) -> LangGraphStat
 
     _emit(state, "planner", f"Planning search strategy: '{search_term}'")
     state.touch()
-    return state
+    return _state_to_dict(state)
 
 
-async def pubmed_search_node(state: LangGraphState, ctx: NodeContext) -> LangGraphState:
+async def pubmed_search_node(state: LangGraphState, ctx: NodeContext) -> Dict[str, Any]:
     """節點 2: PubMed API 搜尋。"""
     _activate_node(state, "pubmed_search")
 
@@ -149,10 +152,10 @@ async def pubmed_search_node(state: LangGraphState, ctx: NodeContext) -> LangGra
             ))
 
     state.touch()
-    return state
+    return _state_to_dict(state)
 
 
-async def result_normalizer_node(state: LangGraphState, ctx: NodeContext) -> LangGraphState:
+async def result_normalizer_node(state: LangGraphState, ctx: NodeContext) -> Dict[str, Any]:
     """節點 3: 將 PubMed 文章解析為 ContextChunk + UUID v5 ID。"""
     _activate_node(state, "result_normalizer")
 
@@ -169,10 +172,10 @@ async def result_normalizer_node(state: LangGraphState, ctx: NodeContext) -> Lan
 
     _emit(state, "result_normalizer", f"Normalized {len(state.rag.context_bundle)} chunks")
     state.touch()
-    return state
+    return _state_to_dict(state)
 
 
-async def qdrant_upsert_node(state: LangGraphState, ctx: NodeContext) -> LangGraphState:
+async def qdrant_upsert_node(state: LangGraphState, ctx: NodeContext) -> Dict[str, Any]:
     """節點 4: 批次寫入 Qdrant。"""
     _activate_node(state, "qdrant_upsert")
 
@@ -201,18 +204,18 @@ async def qdrant_upsert_node(state: LangGraphState, ctx: NodeContext) -> LangGra
         _emit(state, "qdrant_upsert", "Skipped: no wrapper or no chunks")
 
     state.touch()
-    return state
+    return _state_to_dict(state)
 
 
-async def qdrant_search_node(state: LangGraphState, ctx: NodeContext) -> LangGraphState:
+async def qdrant_search_node(state: LangGraphState, ctx: NodeContext) -> Dict[str, Any]:
     """節點 5: 在 Qdrant 中搜尋。"""
     _activate_node(state, "qdrant_search")
     _emit(state, "qdrant_search", "Vector search completed")
     state.touch()
-    return state
+    return _state_to_dict(state)
 
 
-async def rag_synthesizer_node(state: LangGraphState, ctx: NodeContext) -> LangGraphState:
+async def rag_synthesizer_node(state: LangGraphState, ctx: NodeContext) -> Dict[str, Any]:
     """節點 6: RAG 合成。"""
     _activate_node(state, "rag_synthesizer")
 
@@ -230,10 +233,10 @@ async def rag_synthesizer_node(state: LangGraphState, ctx: NodeContext) -> LangG
         _emit(state, "rag_synthesizer", "No context available for synthesis")
 
     state.touch()
-    return state
+    return _state_to_dict(state)
 
 
-async def medical_critic_node(state: LangGraphState, ctx: NodeContext) -> LangGraphState:
+async def medical_critic_node(state: LangGraphState, ctx: NodeContext) -> Dict[str, Any]:
     """節點 7: 醫療審查。"""
     _activate_node(state, "medical_critic")
 
@@ -253,10 +256,10 @@ async def medical_critic_node(state: LangGraphState, ctx: NodeContext) -> LangGr
         _emit(state, "medical_critic", "Content review: revision required")
 
     state.touch()
-    return state
+    return _state_to_dict(state)
 
 
-async def fallback_recovery_node(state: LangGraphState, ctx: NodeContext) -> LangGraphState:
+async def fallback_recovery_node(state: LangGraphState, ctx: NodeContext) -> Dict[str, Any]:
     """節點 8: 降級復原。"""
     _activate_node(state, "fallback_recovery")
 
@@ -269,10 +272,10 @@ async def fallback_recovery_node(state: LangGraphState, ctx: NodeContext) -> Lan
     state.fallback.terminal_reason = "forced_fallback"
     _emit(state, "fallback_recovery", "Degraded response generated")
     state.touch()
-    return state
+    return _state_to_dict(state)
 
 
-async def final_responder_node(state: LangGraphState, ctx: NodeContext) -> LangGraphState:
+async def final_responder_node(state: LangGraphState, ctx: NodeContext) -> Dict[str, Any]:
     """節點 9: 最終回應。"""
     _activate_node(state, "final_responder")
 
@@ -281,7 +284,7 @@ async def final_responder_node(state: LangGraphState, ctx: NodeContext) -> LangG
 
     _emit(state, "final", state.rag.answer_draft or "No response generated.", final=True)
     state.touch()
-    return state
+    return _state_to_dict(state)
 
 
 # ---------------------------------------------------------------------------
@@ -338,31 +341,31 @@ def build_medical_research_graph(ctx: NodeContext) -> Any:
     builder = StateGraph(LangGraphState)
 
     # 包裝節點以注入 context
-    async def _planner(state: LangGraphState) -> LangGraphState:
+    async def _planner(state: LangGraphState) -> Dict[str, Any]:
         return await planner_node(state, ctx)
 
-    async def _pubmed_search(state: LangGraphState) -> LangGraphState:
+    async def _pubmed_search(state: LangGraphState) -> Dict[str, Any]:
         return await pubmed_search_node(state, ctx)
 
-    async def _normalizer(state: LangGraphState) -> LangGraphState:
+    async def _normalizer(state: LangGraphState) -> Dict[str, Any]:
         return await result_normalizer_node(state, ctx)
 
-    async def _qdrant_upsert(state: LangGraphState) -> LangGraphState:
+    async def _qdrant_upsert(state: LangGraphState) -> Dict[str, Any]:
         return await qdrant_upsert_node(state, ctx)
 
-    async def _qdrant_search(state: LangGraphState) -> LangGraphState:
+    async def _qdrant_search(state: LangGraphState) -> Dict[str, Any]:
         return await qdrant_search_node(state, ctx)
 
-    async def _rag_synth(state: LangGraphState) -> LangGraphState:
+    async def _rag_synth(state: LangGraphState) -> Dict[str, Any]:
         return await rag_synthesizer_node(state, ctx)
 
-    async def _critic(state: LangGraphState) -> LangGraphState:
+    async def _critic(state: LangGraphState) -> Dict[str, Any]:
         return await medical_critic_node(state, ctx)
 
-    async def _fallback(state: LangGraphState) -> LangGraphState:
+    async def _fallback(state: LangGraphState) -> Dict[str, Any]:
         return await fallback_recovery_node(state, ctx)
 
-    async def _final(state: LangGraphState) -> LangGraphState:
+    async def _final(state: LangGraphState) -> Dict[str, Any]:
         return await final_responder_node(state, ctx)
 
     # 註冊節點
