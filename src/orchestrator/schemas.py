@@ -3,10 +3,8 @@
 依據 spec.md §4.1 與 constitution.md §6 定義所有 22 個 Pydantic 模型。
 """
 
-from __future__ import annotations
-
 from datetime import datetime
-from typing import Any, Literal, Mapping
+from typing import Any, Dict, List, Literal, Mapping, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -54,27 +52,27 @@ class PlanStep(OrchestratorBaseModel):
         "planner", "researcher", "librarian", "critic",
         "fallback", "responder", "system",
     ] = "planner"
-    dependencies: list[str] = Field(default_factory=list)
-    outputs: list[str] = Field(default_factory=list)
-    notes: list[str] = Field(default_factory=list)
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
+    dependencies: List[str] = Field(default_factory=list)
+    outputs: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
 
 
 class PubMedDocument(OrchestratorBaseModel):
     """標準化的 PubMed 文獻資料。"""
 
     pmid: str
-    title: str | None = None
-    abstract: str | None = None
-    journal: str | None = None
-    published_at: str | None = None
-    mesh_terms: list[str] = Field(default_factory=list)
-    authors: list[str] = Field(default_factory=list)
-    keywords: list[str] = Field(default_factory=list)
-    score: float | None = None
+    title: Optional[str] = None
+    abstract: Optional[str] = None
+    journal: Optional[str] = None
+    published_at: Optional[str] = None
+    mesh_terms: List[str] = Field(default_factory=list)
+    authors: List[str] = Field(default_factory=list)
+    keywords: List[str] = Field(default_factory=list)
+    score: Optional[float] = None
     source: str = "pubmed"
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class PubMedQueryLog(OrchestratorBaseModel):
@@ -86,9 +84,9 @@ class PubMedQueryLog(OrchestratorBaseModel):
     status: Literal[
         "pending", "sent", "succeeded", "empty", "failed", "degraded"
     ] = "pending"
-    result_count: int | None = None
-    error: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    result_count: Optional[int] = None
+    error: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ToolCallMetric(OrchestratorBaseModel):
@@ -100,11 +98,11 @@ class ToolCallMetric(OrchestratorBaseModel):
         "pending", "running", "success", "warning", "error", "timeout", "cancelled"
     ] = "pending"
     started_at: datetime = Field(default_factory=datetime.utcnow)
-    ended_at: datetime | None = None
-    latency_ms: float | None = None
+    ended_at: Optional[datetime] = None
+    latency_ms: Optional[float] = None
     retries: int = 0
-    metadata: dict[str, Any] = Field(default_factory=dict)
-    error: str | None = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    error: Optional[str] = None
 
 
 class VectorHit(OrchestratorBaseModel):
@@ -112,8 +110,8 @@ class VectorHit(OrchestratorBaseModel):
 
     point_id: str
     score: float
-    payload: Mapping[str, Any] | None = None
-    source: str | None = None
+    payload: Optional[Mapping[str, Any]] = None
+    source: Optional[str] = None
 
 
 class BatchTelemetry(OrchestratorBaseModel):
@@ -121,23 +119,23 @@ class BatchTelemetry(OrchestratorBaseModel):
 
     batch_size: int
     processed: int
-    latency_ms: float | None = None
+    latency_ms: Optional[float] = None
     retry_count: int = 0
-    warnings: list[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    detail: dict[str, Any] = Field(default_factory=dict)
+    detail: Dict[str, Any] = Field(default_factory=dict)
 
 
 class QdrantSearchRecord(OrchestratorBaseModel):
     """Qdrant 檢索請求與結果封裝。"""
 
-    query_vector: list[float] | None = None
-    filter: dict[str, Any] | None = None
-    hits: list[VectorHit] = Field(default_factory=list)
+    query_vector: Optional[List[float]] = None
+    filter: Optional[Dict[str, Any]] = None
+    hits: List[VectorHit] = Field(default_factory=list)
     executed_at: datetime = Field(default_factory=datetime.utcnow)
-    latency_ms: float | None = None
+    latency_ms: Optional[float] = None
     degraded: bool = False
-    notes: list[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
 
 
 class ContextChunk(OrchestratorBaseModel):
@@ -145,9 +143,9 @@ class ContextChunk(OrchestratorBaseModel):
 
     chunk_id: str
     content: str
-    source: str | None = None
-    score: float | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    source: Optional[str] = None
+    score: Optional[float] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class CriticFeedback(OrchestratorBaseModel):
@@ -155,10 +153,10 @@ class CriticFeedback(OrchestratorBaseModel):
 
     issue: str
     severity: Literal["info", "minor", "major", "critical"] = "major"
-    suggestion: str | None = None
-    supporting_evidence: list[str] = Field(default_factory=list)
+    suggestion: Optional[str] = None
+    supporting_evidence: List[str] = Field(default_factory=list)
     requires_revision: bool = True
-    source_nodes: list[str] = Field(default_factory=list)
+    source_nodes: List[str] = Field(default_factory=list)
 
 
 class TaskStatus(OrchestratorBaseModel):
@@ -169,9 +167,9 @@ class TaskStatus(OrchestratorBaseModel):
         "pending", "running", "completed", "failed",
         "cancelled", "timeout", "degraded",
     ] = "pending"
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ErrorSignal(OrchestratorBaseModel):
@@ -182,7 +180,7 @@ class ErrorSignal(OrchestratorBaseModel):
     message: str
     severity: Literal["info", "warning", "error", "critical"] = "error"
     raised_at: datetime = Field(default_factory=datetime.utcnow)
-    data: dict[str, Any] = Field(default_factory=dict)
+    data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class FallbackEvent(OrchestratorBaseModel):
@@ -190,9 +188,9 @@ class FallbackEvent(OrchestratorBaseModel):
 
     trigger: str
     action: str
-    reason: str | None = None
+    reason: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class StreamUpdate(OrchestratorBaseModel):
@@ -213,15 +211,15 @@ class UserQueryState(OrchestratorBaseModel):
     """使用者提問的原始與正規化資料。"""
 
     raw_prompt: str = ""
-    normalized_terms: list[str] = Field(default_factory=list)
-    constraints: dict[str, Any] = Field(default_factory=dict)
+    normalized_terms: List[str] = Field(default_factory=list)
+    constraints: Dict[str, Any] = Field(default_factory=dict)
 
 
 class PlanningState(OrchestratorBaseModel):
     """Planner 節點的執行狀態。"""
 
     iteration: int = 0
-    plan_steps: list[PlanStep] = Field(default_factory=list)
+    plan_steps: List[PlanStep] = Field(default_factory=list)
     status: Literal[
         "pending", "running", "succeeded", "degraded", "failed"
     ] = "pending"
@@ -230,9 +228,9 @@ class PlanningState(OrchestratorBaseModel):
 class PubMedState(OrchestratorBaseModel):
     """PubMed 工具輸入輸出狀態。"""
 
-    latest_query: dict[str, Any] | None = None
-    query_history: list[PubMedQueryLog] = Field(default_factory=list)
-    results: list[PubMedDocument] = Field(default_factory=list)
+    latest_query: Optional[Dict[str, Any]] = None
+    query_history: List[PubMedQueryLog] = Field(default_factory=list)
+    results: List[PubMedDocument] = Field(default_factory=list)
     empty_retry_count: int = 0
 
 
@@ -240,23 +238,23 @@ class QdrantState(OrchestratorBaseModel):
     """Qdrant Wrapper 相關的狀態資訊。"""
 
     collection_ready: bool = False
-    upsert_metrics: list[BatchTelemetry] = Field(default_factory=list)
-    search_results: list[QdrantSearchRecord] = Field(default_factory=list)
+    upsert_metrics: List[BatchTelemetry] = Field(default_factory=list)
+    search_results: List[QdrantSearchRecord] = Field(default_factory=list)
     health: Literal["healthy", "degraded", "unavailable"] = "healthy"
 
 
 class RagState(OrchestratorBaseModel):
     """RAG 合成節點的暫存資料。"""
 
-    context_bundle: list[ContextChunk] = Field(default_factory=list)
-    synthesis_notes: list[str] = Field(default_factory=list)
-    answer_draft: str | None = None
+    context_bundle: List[ContextChunk] = Field(default_factory=list)
+    synthesis_notes: List[str] = Field(default_factory=list)
+    answer_draft: Optional[str] = None
 
 
 class CriticState(OrchestratorBaseModel):
     """醫療審查節點的結果。"""
 
-    findings: list[CriticFeedback] = Field(default_factory=list)
+    findings: List[CriticFeedback] = Field(default_factory=list)
     trust_score: float = 1.0
     revision_required: bool = False
 
@@ -264,24 +262,24 @@ class CriticState(OrchestratorBaseModel):
 class TelemetryState(OrchestratorBaseModel):
     """跨節點共享的遙測資訊。"""
 
-    tool_invocations: list[ToolCallMetric] = Field(default_factory=list)
-    active_tasks: dict[str, TaskStatus] = Field(default_factory=dict)
-    error_flags: list[ErrorSignal] = Field(default_factory=list)
-    correlation_id: str | None = None
+    tool_invocations: List[ToolCallMetric] = Field(default_factory=list)
+    active_tasks: Dict[str, TaskStatus] = Field(default_factory=dict)
+    error_flags: List[ErrorSignal] = Field(default_factory=list)
+    correlation_id: Optional[str] = None
 
 
 class FallbackState(OrchestratorBaseModel):
     """降級流程紀錄。"""
 
-    events: list[FallbackEvent] = Field(default_factory=list)
-    terminal_reason: str | None = None
+    events: List[FallbackEvent] = Field(default_factory=list)
+    terminal_reason: Optional[str] = None
 
 
 class UIState(OrchestratorBaseModel):
     """UI streaming 與輸出控管。"""
 
     stream_anchor: str = "root"
-    partial_updates: list[StreamUpdate] = Field(default_factory=list)
+    partial_updates: List[StreamUpdate] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -300,12 +298,12 @@ class LangGraphState(OrchestratorBaseModel):
     telemetry: TelemetryState = Field(default_factory=TelemetryState)
     fallback: FallbackState = Field(default_factory=FallbackState)
     ui: UIState = Field(default_factory=UIState)
-    extensions: dict[str, Any] = Field(default_factory=dict)
+    extensions: Dict[str, Any] = Field(default_factory=dict)
     status: Literal[
         "idle", "running", "succeeded", "failed", "degraded", "cancelled"
     ] = "idle"
-    current_node: str | None = None
-    retry_counters: dict[str, int] = Field(default_factory=dict)
+    current_node: Optional[str] = None
+    retry_counters: Dict[str, int] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
